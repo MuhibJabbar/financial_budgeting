@@ -75,7 +75,7 @@ Table replication and staging setup
 
 Duplicate detection and cleanup
 
-⏳ Further cleaning (e.g., null handling, data type standardization, transformations) still to be done
+Further cleaning (e.g., null handling, data type standardization, transformations) still to be done
 
 Notes
 
