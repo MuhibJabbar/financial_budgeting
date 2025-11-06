@@ -1,1 +1,161 @@
+-- Data Cleaning Project
+
+Select * from financial_budgeting;
+
+-- First we gonna create the replicate table same like financial_budgeting
+
+CREATE TABLE financial_budgeting_staging
+Like financial_budgeting;
+
+Select * from financial_budgeting_staging;
+
+INSERT financial_budgeting_staging 
+select * from financial_budgeting;
+
+-- 1. Remove duplicates
+
+With duplicate_cte as(
+Select *, 
+ROW_NUMBER() over(partition by transaction_id,user_id,`date`,transaction_type,category,amount,
+payment_mode,location,notes ) As duplicate_num
+from financial_budgeting_staging)
+
+select * from duplicate_cte
+where duplicate_num > 1;
+
+
+CREATE TABLE `financial_budgeting_staging2` (
+  `transaction_id` text,
+  `user_id` text,
+  `date` text,
+  `transaction_type` text,
+  `category` text,
+  `amount` int DEFAULT NULL,
+  `payment_mode` text,
+  `location` text,
+  `notes` text,
+  `duplicate_num` INT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+select * from financial_budgeting_staging2
+where duplicate_num > 1;
+
+Insert INTO financial_budgeting_staging2
+Select *, 
+ROW_NUMBER() over(partition by transaction_id,user_id,`date`,transaction_type,category,amount,
+payment_mode,location,notes ) As duplicate_num
+from financial_budgeting_staging;
+
+Delete from financial_budgeting_staging2
+where duplicate_num > 1;
+
+Select * from financial_budgeting_staging2;
+
+-- 2. Standardizing Data
+
+Select distinct category
+from financial_budgeting_staging2;
+
+Update financial_budgeting_staging2
+Set category = case
+	when category = 'Rnt' then 'Rent'
+    when category = 'savings' then 'Saving'
+    when category = 'Fod' then 'food'
+    when category = 'Foods' then 'food'
+    when category = 'Foodd' then 'food'
+    when category = 'Utilties' then 'Utility'
+	when category = 'Utlties' then 'Utility'
+    when category = 'Utlities' then 'Utility'
+    when category = 'Helth' then 'Health'
+	when category = 'Rentt' then 'Rent'
+    when category = 'Traval' then 'Travel'
+    when category = 'Travl' then 'Travel'
+    when category = 'Entrtnmnt' then 'Entertainment'
+	when category = 'Entertain' then 'Entertainment'
+	when category = 'EDU' then 'Education'
+    when category = 'Others' then 'other'
+    when category = '' then 'n/a'
+    Else category
+END;
+
+Update financial_budgeting_staging2
+set  `date` = case
+	when `date` Like '__-__-__' then str_to_date(`date`,'%d-%m-%Y')
+	when `date` Like '__-__-____' then str_to_date(`date`,'%d-%m-%Y')
+    when `date` Like '__/__/____' then str_to_date(`date`,'%m/%d/%Y')
+    when `date` Like '____-__-__' then str_to_date(`date`,'%Y-%m-%d')
+    when `date` Like '____/__/__' then str_to_date(`date`,'%Y/%m/%d')
+    else null 
+end;
+
+select category , `date` from financial_budgeting_staging2;
+
+alter table financial_budgeting_staging2
+Modify column `date` Date;
+
+select distinct 
+payment_mode from financial_budgeting_staging2;
+
+update financial_budgeting_staging2
+set payment_mode = case
+	when payment_mode = 'CRD' then 'Card'
+    when payment_mode = 'Csh' then 'Cash'
+    when payment_mode = 'Bank Transfr' then 'Bank Transfer'
+    when payment_mode = 'BankTransfer' then 'Bank Transfer'
+	when payment_mode = 'Bank_Transfer' then 'Bank Transfer'
+    when payment_mode = '' then 'N/A'
+    else payment_mode
+end;
+
+Delete from financial_budgeting_staging2
+where category is null
+or category = ''
+and location = '';
+
+select * from financial_budgeting_staging2;
+
+update financial_budgeting_staging2
+set location = case
+	when location = '' then 'N/A'
+    else location
+end;
+
+ALter table financial_budgeting_staging2
+Drop duplicate_num;
+
+update financial_budgeting_staging2
+
+set notes = case
+	when notes = '' then 'N/A'
+    else notes
+end;
+
+select amount from financial_budgeting_staging2
+where amount < 0 ;
+
+update financial_budgeting_staging2
+set amount = ABS(amount)
+where amount < 0;
+
+
+select amount , category , payment_mode from financial_budgeting_staging2
+where amount = 999999;
+
+Delete from financial_budgeting_staging2
+where amount >= 999999;
+
+select * from financial_budgeting_staging2;
+
+
+
+
+
+
+
+
+
+
+
+
+
 
