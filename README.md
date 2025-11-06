@@ -1,86 +1,95 @@
-# Data Cleaning Project — Financial Budgeting (SQL)
+# 🧹 BudgetWise Finance Data Cleaning (SQL Project)
 
-The goal of this script is to build a complete, step-by-step data cleaning pipeline that ensures accuracy and consistency in the financial_budgeting dataset.
+## 📘 Overview
+This project demonstrates end-to-end data cleaning in **MySQL** using only SQL queries.  
+The dataset represents personal finance transactions (`financial_budgeting` table) that were messy — full of duplicates, inconsistent text formats, invalid dates, and incorrect amounts.
 
-# First Step Check & Remove duplicate data
+I built a reproducible SQL pipeline that transforms the raw table into a clean, analysis-ready dataset.
 
-# Code explanation
+---
 
-Checks the source table’s contents gives a baseline view before cleaning.
+## ⚙️ Cleaning Process
 
-Select * from financial_budgeting;
+### 1️⃣ Create Staging Tables
+Work safely on a copy of the raw data.
+```sql
+CREATE TABLE financial_budgeting_staging LIKE financial_budgeting;
+INSERT INTO financial_budgeting_staging SELECT * FROM financial_budgeting;
 
-Creates a staging table identical in structure to financial_budgeting.
-This ensures the cleaning process doesn’t alter the original data.
+###2️⃣ Remove Duplicates
 
-CREATE TABLE financial_budgeting_staging
-Like financial_budgeting;
+Use ROW_NUMBER() with window functions to find exact duplicates and keep only the first record.
+```sql
+ROW_NUMBER() OVER (
+  PARTITION BY transaction_id, user_id, date, transaction_type, category, amount, payment_mode, location, notes
+)
+3️⃣ Standardize Text Columns
 
-Copies all rows from the original table into the staging area.
+Fix inconsistent spellings and capitalization across:
 
-INSERT financial_budgeting_staging 
-select * from financial_budgeting;
+Category (Rnt → Rent, Fod/Foods → Food, etc.)
 
-Builds a CTE (Common Table Expression) to mark duplicates.
-It assigns a row number to each record within partitions defined by key columns — if two rows have identical values across all those columns, they share the same partition.
+Payment Mode (CRD → Card, BankTransfer → Bank Transfer)
 
-With duplicate_cte as(
-Select *, 
-ROW_NUMBER() over(partition by transaction_id,user_id,`date`,transaction_type,category,amount,
-payment_mode,location,notes ) As duplicate_num
-from financial_budgeting_staging)
+Location / Notes (empty → N/A)
 
-Displays only the rows identified as duplicates.
+4️⃣ Clean & Convert Dates
 
-select * from duplicate_cte
-where duplicate_num > 1;
+Handle multiple date formats (dd-mm-yyyy, yyyy/mm/dd, etc.) using STR_TO_DATE, then convert the column to DATE type.
 
-Creates another staging table to hold data along with the duplicate_num flag.
+5️⃣ Clean Amounts
 
-CREATE TABLE `financial_budgeting_staging2` (
-  `transaction_id` text,
-  `user_id` text,
-  `date` text,
-  `transaction_type` text,
-  `category` text,
-  `amount` int DEFAULT NULL,
-  `payment_mode` text,
-  `location` text,
-  `notes` text,
-  `duplicate_num` INT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+Convert negative amounts to positive using ABS()
 
+Remove extreme outliers (amount >= 999999)
 
-Loads all data from the first staging table into the second, tagging duplicates.
+Ensure column type is numeric
 
-Insert INTO financial_budgeting_staging2
-Select *, 
-ROW_NUMBER() over(...) As duplicate_num
-from financial_budgeting_staging;
+6️⃣ Handle Missing Values
 
-Removes all rows beyond the first instance of each duplicate set — effectively deduplicating the dataset.
+Drop rows missing critical data (like category or both category and location)
 
+Replace blanks in text columns with N/A
 
-Delete from financial_budgeting_staging2
-where duplicate_num > 1;
+Flag or delete null dates depending on analysis needs
 
-Shows the cleaned data for verification.
+7️⃣ Quality Checks
 
-select * from financial_budgeting_staging2;
+Run final validation queries:
+```sql
+SELECT COUNT(*) FROM financial_budgeting_staging2;
+SELECT SUM(date IS NULL) AS null_dates FROM financial_budgeting_staging2;
+SELECT DISTINCT category FROM financial_budgeting_staging2;
+
+| Step         | Example Before   Example After
+| ------------ | -------------- | --------------- | 
+| Category     | `Fod`          | `Food`          |               
+| Payment Mode | `BankTransfer` | `Bank Transfer` |               
+| Date         | `'03/12/23'`   | `2023-03-12`    |               
+| Amount       | `-450`         | `450`           |               
+| Notes        | `''`           | `'N/A'`         |
 
 
-# Current scope
+#Tools & Concepts
 
-Table replication and staging setup
+SQL / MySQL 8
 
-Duplicate detection and cleanup
+Window functions
 
-Further cleaning (e.g., null handling, data type standardization, transformations) still to be done
+CASE statements for categorical mapping
 
-Notes
+STR_TO_DATE for parsing multiple date formats
 
-The main table financial_budgeting remains untouched.
+Data type conversion & constraints
 
-The process uses MySQL’s ROW_NUMBER() function, so version 8.0+ is required.
+Outlier handling
 
-Once other cleaning tasks are added, this script will evolve into a full ETL workflow.
+#Key Learnings
+
+Built a full data-cleaning workflow using pure SQL.
+
+Learned the importance of staging tables for safe transformations.
+
+Practiced data standardization, type conversion, and validation.
+
+Gained confidence working with window functions and conditional logic in SQL.
